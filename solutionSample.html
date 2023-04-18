@@ -1,0 +1,178 @@
+<!DOCTYPE html> 
+<html> 
+<body style="background-color: rgb(235, 235, 200)" /> 
+
+<!-- select INPUT (use Camera) -->
+(1) INPUT : <span id="txt_input"> using None </span> <br>
+<button id="btn_input_image">Use Image</button>
+<button id="btn_input_video">Use Video</button>
+<button id="btn_input_webcam">Use Camera</button>
+
+<br><br>
+
+<div id="container_input" width="640">
+<video id="myVideo" muted style="width:120px; height:90px;" >
+</video>
+</div>
+<br>
+
+<!-- the MIXER allows for INPUT to be edited before sending to OUT -->
+(2) MIXER : <br>
+<button id="btn_fx_pause">Pause video</button>
+<button id="btn_fx_color1">Effect video</button>
+<br><br>
+
+<div id="container_mixer" >
+<canvas id="myCanvas" width="640" height="480" style="width:320px; height:240px; position: absolute;" >
+</canvas>
+</div>
+
+<!-- The OUTPUT (try to plug this stream into Google Meet) -->
+<div id="container_output" style="position: absolute; top: 0px; left: 370px;">
+<video id="output_vid" width="640" height="480">
+<source src="" type="video/mp4">
+</video>
+
+<br>
+(3) <span id="txt_output"> OUTPUT PREVIEW : </span> <br>
+
+<span id="txt_output_info"> 
+- The output stream can be plugged into the Google Meet video tag,<br>
+- Or sent to other peers via webRTC / Sockets.<br>
+- Or recorded to a video file (using some encoding API like MediaRecorder or WebCodecs)
+</span>
+<br>
+<button id="btn_output_record">Record Output Stream</button>
+<br>
+
+</div>
+
+
+<script>
+
+//# setup buttons for INPUT stage
+const btn_input_webcam = document.getElementById("btn_input_webcam");
+btn_input_webcam.addEventListener('click',  function (e) { get_input() } );
+
+const btn_input_video = document.getElementById("btn_input_video");
+btn_input_video.addEventListener('click',  function (e) { get_input() } );
+
+const btn_input_image = document.getElementById("btn_input_image");
+btn_input_image.addEventListener('click',  function (e) { get_input() } );
+
+//# setup buttons for MIXER stage
+const btn_fx_pause = document.getElementById("btn_fx_pause");
+btn_fx_pause.addEventListener('click',  function (e) { effect_freezeCamera() } );
+
+//////////////////////////////////
+
+//## (1) INPUT : is Media Element
+//# access the video tag
+const vid = document.getElementById("myVideo");
+vid.muted = true;
+
+let txt_input = document.getElementById("txt_input");
+let input_cameraStream = null;
+
+let media_width = 0;let media_height = 0;
+var stream_output;
+
+////////////////////////////////////////////
+//# (1) INPUT : is Media Element
+//# access the video tag
+const vid_out = document.getElementById("output_vid");
+vid_out.muted = true;
+
+vid.onplaying = function() 
+{
+    //alert("The video is now playing");
+    stream_output = vid.captureStream();
+    //vid_out.srcObject = stream_output;
+    
+    vid.requestVideoFrameCallback(updateCanvas);
+};
+
+////////////////////////////////////////////
+//## (2) MIXER : is Canvas
+const canvas_mixer = document.getElementById("myCanvas");
+const ctx_mixer = canvas_mixer.getContext('2d');
+
+
+////////////////////////////////////////////
+//## (3) OUTPUT : try sending to Google Meet
+
+var stream_output;
+
+//# set output source (eg: the Canvas)...
+stream_output = canvas_mixer.captureStream(25);
+
+/////////////////////////////////////////////////
+
+function effect_freezeCamera()
+{
+    if( vid.readyState >= 3 )
+    {
+        if( vid.paused ) { vid.play(); btn_fx_pause.innerHTML = "[ ■ ] Pause Video"; }
+        else{ vid.pause(); btn_fx_pause.innerHTML = "[ ► ] Play Video"; }
+    }
+}
+
+function effect_resumeCamera()
+{
+    vid.play();
+}
+
+function updateCanvas ()
+{
+    ctx_mixer.drawImage(vid , 0, 0, media_width, 480 );
+    vid.requestVideoFrameCallback(updateCanvas);    
+}
+
+function get_input()
+{
+    //alert("### Getting webcam...");
+    connect_CameraStream( {video: true} )
+    .then
+    ( givenStreamObject => 
+        {
+            input_cameraStream = givenStreamObject;
+            let videoTrack = givenStreamObject.getVideoTracks()[0];
+            input_cameraStream.addTrack(videoTrack);
+            
+            txt_input.innerText = "using Camera";
+            
+            renderVideo();
+        }
+    )
+}
+
+function connect_CameraStream( input_constraints ) 
+{
+  return navigator.mediaDevices.getUserMedia( input_constraints )
+}
+
+function renderVideo() 
+{  
+    vid.srcObject = input_cameraStream;
+ 
+    vid.onloadedmetadata = function(e) 
+    {
+        //# update found Width/Height (used by Canvas later on)
+        media_width = vid.videoWidth;
+        media_height = vid.videoHeight;
+
+        //# show the Camera feed
+        vid.play(); 
+
+        vid_out.srcObject = stream_output;
+        vid_out.play();
+
+        // update U.I in some way..
+        btn_fx_pause.innerHTML = "[ ■ ] Pause Video";
+    };
+}
+
+</script> 
+
+</body> 
+</html>

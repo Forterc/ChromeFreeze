@@ -1,1 +1,1 @@
-# ChromeFreeze
+Ban annoying youtube channels, forever.
